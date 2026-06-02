@@ -1,6 +1,6 @@
 import os 
 import re
-from openai import OpenAI
+from groq import Groq
 
 
 class GridWorld:
@@ -12,12 +12,29 @@ class GridWorld:
 
 
     def get_observation_text(self):
-        """translating grid state in to text state for AI"""
-        return(
-            f"You are a robot in a 5x5 grid world. "
-            f"Your current position is {self.agent_pos}."
-            f"The target objective is located at {self.target_pos}."
-            f"Available moves: [MOVE_UP, MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT]."
+        """Translating grid state into a clearer text state with memory for the AI."""
+        x, y = self.agent_pos
+        tx, ty = self.target_pos
+        
+        # Calculate exactly which directions are physically blocked by walls
+        blocked_moves = []
+        if y == 0: blocked_moves.append("MOVE_UP")
+        if y == 4: blocked_moves.append("MOVE_DOWN")
+        if x == 0: blocked_moves.append("MOVE_LEFT")
+        if x == 4: blocked_moves.append("MOVE_RIGHT")
+        
+        blocked_text = ", ".join(blocked_moves) if blocked_moves else "None"
+
+        return (
+            f"You are an autonomous robot routing agent in a 5x5 grid map.\n"
+            f"Your current coordinates (X, Y) are: [{x}, {y}]\n"
+            f"The target objective coordinates are: [{tx}, {ty}]\n"
+            f"CRITICAL MAP RULES:\n"
+            f"- To change X (left/right): MOVE_RIGHT increases X, MOVE_LEFT decreases X.\n"
+            f"- To change Y (up/down): MOVE_DOWN increases Y, MOVE_UP decreases Y.\n"
+            f"- WALL WARNING: Do NOT choose any of these moves from your current spot because they are blocked by walls: [{blocked_text}].\n"
+            f"Total moves used: {self.moves_taken}/20.\n"
+            f"Choose exactly one move from the available list."
         )
     
 
@@ -45,7 +62,7 @@ class GridWorld:
 def query_llm_for_action(observation_text):
     """Sends the current world state to the AI and extracts a valid movement command."""
     # Instantiating the client. It automatically pulls your token from the environment variable
-    client = OpenAI()
+    client = Groq()
     
     # This strict system prompt forces the AI to reply with only the bracketed command
     system_instruction = (
@@ -55,7 +72,7 @@ def query_llm_for_action(observation_text):
     )
     
     response = client.chat.completions.create(
-        model="gpt-4o-mini", # A fast, highly capable model ideal for agent logic loops
+        model="llama-3.3-70b-versatile", 
         messages=[
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": observation_text}
