@@ -1,3 +1,8 @@
+import os 
+import re
+from openai import OpenAI
+
+
 class GridWorld:
     def __init__(self):
         #defining a 5x5 grid
@@ -37,28 +42,64 @@ class GridWorld:
         return self.agent_pos== self.target_pos
     
 
+def query_llm_for_action(observation_text):
+    """Sends the current world state to the AI and extracts a valid movement command."""
+    # Instantiating the client. It automatically pulls your token from the environment variable
+    client = OpenAI()
+    
+    # This strict system prompt forces the AI to reply with only the bracketed command
+    system_instruction = (
+        "You are an autonomous robot routing agent. Your ultimate goal is to navigate to the target coordinates. "
+        "Analyze your current coordinates against target coordinates and respond with EXACTLY one valid action word from the "
+        "available list, wrapped in square brackets. Example: [MOVE_RIGHT]. Do not explain your reasoning."
+    )
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini", # A fast, highly capable model ideal for agent logic loops
+        messages=[
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": observation_text}
+        ],
+        temperature=0.0 # Setting temperature to 0 keeps the AI deterministic and perfectly logical
+    )
+    
+    ai_text_reply = response.choices[0].message.content.strip().upper()
+    print(f"[LLM RAW RESPONSE]: {ai_text_reply}")
+    
+    # Extract the action out of the bracket container via regex, e.g., "[MOVE_UP]" -> "MOVE_UP"
+    match = re.search(r'\[(MOVE_UP|MOVE_DOWN|MOVE_LEFT|MOVE_RIGHT)\]', ai_text_reply)
+    if match:
+        return match.group(1)
+    
+    # Fallback default if the AI accidentally ignores brackets or gives a messy string
+    return "MOVE_RIGHT"
+
+
 def main():
-    """main control loop for our application"""
-    world=GridWorld()
-    game_over=False
+    """main control loop for our AI application"""
+    world = GridWorld()
+    game_over = False
 
-    print("Game started! Type a move to play")
+    print("--- Game Started! The Autonomous LLM Agent is now in control ---")
 
-    while not game_over:
-        #show the world in text
-        print("\n"+world.get_observation_text())
+    # Set a maximum cap of 20 moves so a hallucinating AI doesn't cost money in an infinite loop
+    while not game_over and world.moves_taken < 20:
+        # 1. Show the world text state
+        current_state = world.get_observation_text()
+        print(f"\n[STEP {world.moves_taken + 1}] Sent to AI: {current_state}")
 
-        #get input from user in the terminal
-        user_move=input("Enter action: ").strip().upper()
+        # 2. Query our newly created AI brain instead of an input box
+        ai_chosen_move = query_llm_for_action(current_state)
+        print(f"[ACTION EXECUTED]: {ai_chosen_move}")
 
-        #run the move
-        game_over = world.step(user_move)
+        # 3. Apply the move to the board grid
+        game_over = world.step(ai_chosen_move)
+
+    if game_over:
+        print(f"\n🎉 Success! Target was reached in {world.moves_taken} moves.")
+    else:
+        print("\n❌ Mission failed: The AI loop timed out or got stuck.")
 
 
-    print(f"Success! Target was reached in {world.moves_taken} moves.")
-
-
-
-#allows the main function to run when this script is executed directly
 if __name__ == "__main__":
     main()
