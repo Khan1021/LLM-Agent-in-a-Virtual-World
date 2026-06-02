@@ -37,22 +37,28 @@ class GridWorld:
         return self.agent_pos== self.target_pos
     
 
-    def main():
-        """main control loop for our application"""
-        world=GridWorld()
-        game_over=False
+def main():
+    """main control loop for our application"""
+    world=GridWorld()
+    game_over=False
 
-        print("Game started! Type a move to play")
+    print("Game started! Type a move to play")
 
-        while not game_over:
-            #show the world in text
-            print("\n"+world.get_observation_text())
+    while not game_over:
+        #show the world in text
+        print("\n"+world.get_observation_text())
 
-            #get input from user in the terminal
-            user_move=input("Enter action: ").strip().upper()
+        #get input from user in the terminal
+        user_move=input("Enter action: ").strip().upper()
 
-            #run the move
-            game_over = world.step(user_move)
+        #run the move
+        game_over = world.step(user_move)
 
 
-        print("Success! Target was reached in {world.moves_taken} moves.")
+    print(f"Success! Target was reached in {world.moves_taken} moves.")
+
+
+
+#allows the main function to run when this script is executed directly
+if __name__ == "__main__":
+    main()
